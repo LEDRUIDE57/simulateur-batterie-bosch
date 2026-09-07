@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="description" content="Simulateur Batterie GPX Bosch V2.5 - prévision Komoot vers Bosch Flow">
+  <title>Simulateur Batterie GPX · Bosch V2.5</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <div class="eyebrow">BOSCH / HAIbike · PRÉVISION KOMOOT → FLOW</div>
+      <h1>Simulateur Batterie GPX · V2.5</h1>
+    </div>
+    <div class="status-pill" id="appStatus">Prêt</div>
+  </header>
+
+  <nav class="tabs" aria-label="Navigation principale">
+    <button class="tab active" data-screen="gpx">GPX Komoot</button>
+    <button class="tab" data-screen="settings">Paramètres V2.5</button>
+    <button class="tab" data-screen="results">Résultats</button>
+  </nav>
+
+  <main>
+    <section id="screen-gpx" class="screen active">
+      <div class="hero-card">
+        <div>
+          <div class="section-kicker">PARCOURS PRÉVISIONNEL</div>
+          <h2>Charger le GPX préparé dans Komoot</h2>
+          <p>La V2.5 estime ce que Bosch Flow devrait mesurer après la sortie : distance, D+, répartition TOUR / eMTB / eMTB+ et consommation batterie.</p>
+        </div>
+        <label class="primary-button file-button">
+          Choisir un GPX
+          <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden>
+        </label>
+      </div>
+
+      <div class="calibration-strip">
+        <strong>Calibration V2.5 prévisionnelle :</strong> GPX Komoot → comparaison avec sorties Bosch Flow réelles. Les valeurs internes sont celles retenues après Metz et Roupeldange.
+      </div>
+
+      <div id="gpxEmpty" class="empty-state">
+        <div class="empty-icon">⌁</div>
+        <h3>Aucun parcours chargé</h3>
+        <p>Choisis le fichier <strong>.gpx exporté de Komoot</strong> avant la sortie.</p>
+      </div>
+
+      <div id="gpxLoaded" class="hidden">
+        <div class="card">
+          <div class="card-title-row">
+            <div>
+              <div class="section-kicker">FICHIER CHARGÉ</div>
+              <h2 id="fileName">—</h2>
+              <div id="sourceLine" class="source-line"></div>
+            </div>
+            <button id="reanalyzeBtn" class="secondary-button">Recalculer</button>
+          </div>
+          <div class="metrics six" id="gpxMetrics"></div>
+        </div>
+        <div id="sourceWarning" class="notice hidden"></div>
+        <div class="notice">
+          Le calcul produit toujours <strong>deux scénarios distincts</strong> : sans recharge et avec recharge au kilomètre permettant de refaire le plein à 100 %.
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen">
+      <div class="card">
+        <div class="card-title-row">
+          <div>
+            <div class="section-kicker">CALIBRATION BOSCH V2.5</div>
+            <h2>Paramètres du moteur prévisionnel</h2>
+          </div>
+          <button id="resetSettingsBtn" class="secondary-button danger-lite">Valeurs V2.5 validées</button>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-group">
+            <h3>Batterie</h3>
+            <label>Capacité batterie <span>Wh</span><input data-setting="batteryCapacityWh" type="number" step="1"></label>
+            <div class="settings-note">Référence actuelle : Bosch PowerTube <strong>800 Wh</strong>.<br>Couleurs batterie : <strong>vert &gt; 20 %</strong>, <strong>jaune 10–20 %</strong>, <strong>rouge &lt; 10 %</strong>.</div>
+          </div>
+
+          <div class="settings-group model-settings">
+            <h3>Profil GPX Komoot</h3>
+            <label>Facteur distance Flow <span>×</span><input data-setting="distanceFactor" type="number" step="0.00001"></label>
+            <label>Correction D+ Komoot → Flow <span>×</span><input data-setting="elevationFactor" type="number" step="0.0001"></label>
+            <label>Lissage altitude <span>m</span><input data-setting="smoothingWindowM" type="number" step="5"></label>
+            <label>Pas de rééchantillonnage <span>m</span><input data-setting="resampleStepM" type="number" step="1"></label>
+            <label>Longueur tronçon <span>km</span><input data-setting="segmentLengthKm" type="number" step="0.1"></label>
+          </div>
+
+          <div class="settings-group">
+            <h3>Modes d’assistance</h3>
+            <label>Seuil TOUR → eMTB <span>% pente+</span><input data-setting="tourThresholdPct" type="number" step="0.01"></label>
+            <label>Seuil eMTB → eMTB+ <span>% pente+</span><input data-setting="emtbPlusThresholdPct" type="number" step="0.01"></label>
+            <label>Conso TOUR <span>Wh/km</span><input data-setting="tourConsumptionWhPerKm" type="number" step="0.1"></label>
+            <label>Conso eMTB <span>Wh/km</span><input data-setting="emtbConsumptionWhPerKm" type="number" step="0.1"></label>
+            <label>Conso eMTB+ <span>Wh/km</span><input data-setting="emtbPlusConsumptionWhPerKm" type="number" step="0.1"></label>
+            <label>Coefficient montée <span>Wh/m</span><input data-setting="climbCoefficientWhPerM" type="number" step="0.01"></label>
+          </div>
+
+          <div class="settings-group recharge-settings">
+            <h3>Recharge</h3>
+            <label>Énergie disponible <span>Wh</span><input data-setting="rechargeWh" type="number" step="1"></label>
+            <div class="settings-note">
+              Pause déjeuner de référence : <strong>1 h 30 ≈ +200 Wh</strong>.<br><br>
+              Le simulateur conseille donc de <strong>faire le plein dès qu’environ 200 Wh ont été consommés</strong>. Le km est calculé automatiquement pour que la pause puisse ramener la batterie à <strong>100 %</strong>.
+            </div>
+          </div>
+        </div>
+
+        <div class="bosch-reference-panel" aria-label="Réglages Bosch de référence">
+          <div class="bosch-reference-head">
+            <div>
+              <div class="section-kicker">RÉGLAGES EBIKE FLOW</div>
+              <h2>Réglages Bosch de référence</h2>
+            </div>
+            <span class="readonly-badge">Lecture seule</span>
+          </div>
+
+          <div class="reference-warning">
+            <strong>Important :</strong> ces valeurs rappellent la configuration eBike Flow utilisée pour la calibration.
+            Une modification de ces réglages dans <strong>eBike Flow</strong> n'est <strong>pas prise en compte automatiquement</strong> par le recalcul.
+            Le simulateur continue d'utiliser la calibration prévisionnelle V2.5 validée à partir des sorties réelles.
+          </div>
+
+          <div class="bosch-reference-grid">
+            <div class="bosch-mode-card green">
+              <div class="bosch-mode-top"><strong>TOUR</strong><span>référence Flow</span></div>
+              <div class="bosch-power">500 W</div>
+              <div class="bosch-specs"><span>Couple max <b>85 Nm</b></span><span>Vitesse max <b>25 km/h</b></span><span>Assistance <b>Supérieur (+1)</b></span></div>
+            </div>
+            <div class="bosch-mode-card blue">
+              <div class="bosch-mode-top"><strong>eMTB</strong><span>référence Flow</span></div>
+              <div class="bosch-power">425 W</div>
+              <div class="bosch-specs"><span>Couple max <b>85 Nm</b></span><span>Vitesse max <b>25 km/h</b></span><span>Assistance <b>Supérieur (+3)</b></span></div>
+            </div>
+            <div class="bosch-mode-card purple">
+              <div class="bosch-mode-top"><strong>eMTB+</strong><span>référence Flow</span></div>
+              <div class="bosch-power">650 W</div>
+              <div class="bosch-specs"><span>Couple max <b>100 Nm</b></span><span>Vitesse max <b>25 km/h</b></span><span>Assistance <b>Supérieur (+3)</b></span></div>
+            </div>
+            <div class="bosch-mode-card red">
+              <div class="bosch-mode-top"><strong>Turbo</strong><span>référence Flow</span></div>
+              <div class="bosch-power">600 W</div>
+              <div class="bosch-specs"><span>Couple max <b>85 Nm</b></span><span>Vitesse max <b>25 km/h</b></span><span>Assistance <b>Valeur par défaut</b></span></div>
+            </div>
+          </div>
+
+          <details class="flow-capture">
+            <summary>Voir la capture eBike Flow de référence</summary>
+            <img src="bosch-flow-reference.png" alt="Capture des réglages personnalisés Bosch eBike Flow utilisés comme référence">
+          </details>
+        </div>
+
+        <div class="settings-actions">
+          <span id="settingsSaved" class="save-message"></span>
+          <button id="saveSettingsBtn" class="primary-button">Enregistrer les paramètres</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-results" class="screen">
+      <div id="resultsEmpty" class="empty-state">
+        <div class="empty-icon">▥</div>
+        <h3>Pas encore de résultat</h3>
+        <p>Charge d’abord un GPX Komoot dans l’onglet <strong>GPX Komoot</strong>.</p>
+      </div>
+
+      <div id="resultsContent" class="hidden">
+        <div class="card result-summary">
+          <div class="card-title-row">
+            <div>
+              <div class="section-kicker">PRÉVISION BOSCH FLOW</div>
+              <h2 id="resultFileName">—</h2>
+            </div>
+            <div class="mode-badge">Bosch V2 · Komoot → Flow</div>
+          </div>
+          <div class="metrics six" id="routeMetrics"></div>
+        </div>
+
+        <div class="card calibration-card">
+          <div class="section-kicker">LECTURE DU MODÈLE</div>
+          <h2>Ce que la V2 prédit avant la sortie</h2>
+          <div id="modelSummary" class="model-summary"></div>
+        </div>
+
+        <section class="scenario scenario-one">
+          <div class="scenario-header">
+            <div class="scenario-number">1</div>
+            <div><div class="section-kicker">RÉSULTAT 1</div><h2>Sans recharge</h2></div>
+          </div>
+          <div class="card scenario-result-card">
+            <div class="metrics four" id="noRechargeMetrics"></div>
+            <div id="noRechargeStatus" class="scenario-note"></div>
+          </div>
+          <div class="card chart-card">
+            <div class="chart-heading">
+              <div><div class="section-kicker">GRAPHIQUE 1</div><h2>Parcours complet sans recharge</h2></div>
+              <div class="legend">
+                <span><i class="dplus"></i>D+</span><span><i class="tour"></i>TOUR</span><span><i class="emtb"></i>eMTB</span><span><i class="emtbplus"></i>eMTB+</span>
+                <span class="battery-scale-label">Batterie :</span><span><i class="battery-green"></i>&gt; 20 %</span><span><i class="battery-yellow"></i>10–20 %</span><span><i class="battery-red"></i>&lt; 10 %</span>
+              </div>
+            </div>
+            <div class="chart-scroll"><canvas id="chartNoRecharge" height="370"></canvas></div>
+          </div>
+        </section>
+
+        <section class="scenario scenario-two">
+          <div class="scenario-header">
+            <div class="scenario-number">2</div>
+            <div><div class="section-kicker">RÉSULTAT 2</div><h2>Avec recharge déjeuner jusqu’au plein</h2></div>
+          </div>
+          <div class="card scenario-result-card recharge-card">
+            <div id="rechargeRule" class="recharge-rule"></div>
+            <div class="metrics six" id="withRechargeMetrics"></div>
+            <div id="withRechargeStatus" class="scenario-note"></div>
+          </div>
+          <div class="card chart-card">
+            <div class="chart-heading">
+              <div><div class="section-kicker">GRAPHIQUE 2</div><h2>Parcours complet avec plein déjeuner à 100 %</h2></div>
+              <div class="legend">
+                <span><i class="dplus"></i>D+</span><span><i class="tour"></i>TOUR</span><span><i class="emtb"></i>eMTB</span><span><i class="emtbplus"></i>eMTB+</span>
+                <span class="battery-scale-label">Batterie :</span><span><i class="battery-green"></i>&gt; 20 %</span><span><i class="battery-yellow"></i>10–20 %</span><span><i class="battery-red"></i>&lt; 10 %</span><span><i class="recharge"></i>Recharge</span>
+              </div>
+            </div>
+            <div class="chart-scroll"><canvas id="chartWithRecharge" height="370"></canvas></div>
+          </div>
+        </section>
+
+        <div class="card">
+          <div class="card-title-row">
+            <div><div class="section-kicker">DÉTAIL PRÉVISIONNEL</div><h2>Tronçons de 1 km</h2></div>
+            <button id="csvBtn" class="secondary-button">Exporter CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>N°</th><th>Km début</th><th>Km fin</th><th>Dist.</th><th>D+ prévu</th><th>Pente +</th><th>Mode</th><th>Conso</th><th>Cumul</th><th>Restant sans recharge</th><th>Restant avec recharge</th></tr></thead>
+              <tbody id="segmentsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Simulateur Batterie GPX · Bosch V2</strong><br>
+    Calibration prévisionnelle Komoot → Bosch Flow · calcul 100 % local dans le navigateur.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
